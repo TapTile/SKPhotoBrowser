@@ -17,7 +17,7 @@ open class SKPhotoBrowser: UIViewController {
     open var initPageIndex: Int = 0
     open var activityItemProvider: UIActivityItemProvider?
     open var photos: [SKPhotoProtocol] = []
-	open var autoHideControllsfadeOutDelay: Double = 4.0
+    open var autoHideControllsfadeOutDelay: Double = 4.0
     open var shouldAutoHideControlls: Bool = true
     
     public var toolActionButton: UIBarButtonItem {
@@ -120,13 +120,12 @@ open class SKPhotoBrowser: UIViewController {
     
     override open func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(true)
-        reloadData()
-        
-        var i = 0
-        for photo: SKPhotoProtocol in photos {
+
+        for (i, photo) in photos.enumerated() {
             photo.index = i
-            i += 1
         }
+
+        reloadData()
     }
     
     override open func viewWillLayoutSubviews() {
