@@ -100,26 +100,48 @@ open class SKZoomingScrollView: UIScrollView {
 
         guard let url = photo.videoURL else { return nil }
 
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [])
-        try? AVAudioSession.sharedInstance().setActive(true)
+        let asset = AVURLAsset(url: url)
+        let keys = ["playable", "hasProtectedContent"]
 
-        let player = AVPlayer(url: url)
-        videoPlayer = player
+        asset.loadValuesAsynchronously(forKeys: keys) { [weak self] in
+            guard let self = self else { return }
 
-        let playerVC = AVPlayerViewController()
-        playerVC.player = player
-        playerVC.view.frame = bounds
-        playerVC.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        addSubview(playerVC.view)
+            DispatchQueue.main.async {
+                for key in keys {
+                    var error: NSError?
+                    let status = asset.statusOfValue(forKey: key, error: &error)
+                    if status == .failed {
+                        print("Failed to load \(key): \(error?.localizedDescription ?? "Unknown error")")
+                        return
+                    }
+                }
 
-        playerVC.showsPlaybackControls = true
+                do {
+                    try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [])
+                    try AVAudioSession.sharedInstance().setActive(true)
+                } catch {
+                    print("Failed to activate AVAudioSession: \(error.localizedDescription)")
+                }
 
-        // Automatically start playing (restores previous behavior)
-        player.play()
+                let playerItem = AVPlayerItem(asset: asset)
+                let player = AVPlayer(playerItem: playerItem)
+                self.videoPlayer = player
 
-        videoPlayerViewController = playerVC
-        bringSubviewToFront(playerVC.view)
-        return playerVC
+                let playerVC = AVPlayerViewController()
+                playerVC.showsPlaybackControls = false
+                playerVC.player = player
+                playerVC.view.frame = self.bounds
+                playerVC.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                self.addSubview(playerVC.view)
+
+                player.play()
+
+                self.videoPlayerViewController = playerVC
+                self.bringSubviewToFront(playerVC.view)
+            }
+        }
+
+        return nil
     }
     
     // MARK: - override
