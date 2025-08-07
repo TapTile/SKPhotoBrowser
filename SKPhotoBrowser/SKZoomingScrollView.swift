@@ -8,7 +8,6 @@
 
 import UIKit
 import AVFoundation
-import AVKit
 
 open class SKZoomingScrollView: UIScrollView {
     
@@ -94,8 +93,8 @@ open class SKZoomingScrollView: UIScrollView {
     }
     
     func setupVideo () {
-        guard let url = photo.videoURL else { return }
-
+        
+        // tap
         if !isVideoSetup {
             isVideoSetup = true
             tapView = SKDetectingView(frame: bounds)
@@ -104,118 +103,25 @@ open class SKZoomingScrollView: UIScrollView {
             tapView.autoresizingMask = [.flexibleHeight, .flexibleWidth]
             addSubview(tapView)
         }
-
-        videoPlayer = AVPlayer(url: url)
-        videoPlayerLayer = AVPlayerLayer(player: videoPlayer)
-        videoPlayerLayer?.frame = self.bounds
-        videoPlayerLayer?.videoGravity = .resizeAspect
-        layer.addSublayer(videoPlayerLayer!)
-
-        // --- Add playback controls ---
-        // Add play/pause button
-        let playPauseButton = UIButton(type: .custom)
-        playPauseButton.frame = CGRect(x: (bounds.width - 60) / 2, y: (bounds.height - 60) / 2, width: 60, height: 60)
-        if #available(iOS 13.0, *) {
-            playPauseButton.setImage(UIImage(systemName: "play.fill"), for: .normal)
-        } else {
-            playPauseButton.setImage(nil, for: .normal)
+        
+        if let url = photo.videoURL {
+            
+            imageViewVideoButton = UIImageView(frame: CGRect(x: 0, y: 0,
+                                                             width: 50, height: 50))
+            
+            imageViewVideoButton?.image = UIImage(named: "PlayButton.png")
+            
+            addSubview(imageViewVideoButton!)
+            imageViewVideoButton?.center = center
+            
+            videoPlayer = AVPlayer(url: url)
+            videoPlayerLayer = AVPlayerLayer(player: videoPlayer)
+            videoPlayerLayer?.frame = self.bounds
+            layer.addSublayer(videoPlayerLayer!)
+            
+            bringSubviewToFront(imageViewVideoButton!)
         }
-        playPauseButton.tintColor = .white
-        playPauseButton.backgroundColor = UIColor.black.withAlphaComponent(0.6)
-        playPauseButton.layer.cornerRadius = 30
-        playPauseButton.clipsToBounds = true
-        addSubview(playPauseButton)
-
-        playPauseButton.addTarget(self, action: #selector(togglePlayback), for: .touchUpInside)
-        self.imageViewVideoButton = UIImageView(frame: playPauseButton.frame) // reuse to keep a reference
-        self.imageViewVideoButton?.isHidden = true
-
-        // Add progress bar
-        let progressView = UIProgressView(progressViewStyle: .default)
-        progressView.frame = CGRect(x: 16, y: bounds.height - 30, width: bounds.width - 32, height: 2)
-        progressView.progressTintColor = .white
-        progressView.trackTintColor = UIColor.white.withAlphaComponent(0.3)
-        addSubview(progressView)
-
-        // Timer to update progress
-        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self = self,
-                  let player = self.videoPlayer,
-                  let currentItem = player.currentItem else { return }
-
-            let duration = currentItem.duration.seconds
-            let currentTime = player.currentTime().seconds
-
-            if duration.isFinite && currentTime.isFinite && duration > 0 {
-                progressView.progress = Float(currentTime / duration)
-            }
-        }
-
-        // --- Add mute/unmute button at top-right ---
-
-        // Add mute/unmute button
-        let muteButton = UIButton(type: .system)
-        muteButton.frame = CGRect(x: bounds.width - 60, y: 40, width: 24, height: 24)
-        if #available(iOS 13.0, *) {
-            muteButton.setImage(UIImage(systemName: "speaker.wave.2.fill"), for: .normal)
-        }
-        muteButton.tintColor = .white
-        muteButton.addTarget(self, action: #selector(toggleMute), for: .touchUpInside)
-        addSubview(muteButton)
-
-        // --- Configure audio session to allow playback even in silent mode ---
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
-            try AVAudioSession.sharedInstance().setActive(true)
-        } catch {
-            print("Failed to set audio session category: \(error)")
-        }
-
-        videoPlayer?.play()
-    }
-
-    @objc private func togglePlayback(_ sender: UIButton? = nil) {
-        guard let player = videoPlayer else { return }
-
-        if player.rate == 0 {
-            player.play()
-            if let button = sender as? UIButton {
-                if #available(iOS 13.0, *) {
-                    button.setImage(UIImage(systemName: "pause.fill"), for: .normal)
-                } else {
-                    button.setImage(nil, for: .normal)
-                }
-            }
-            if #available(iOS 13.0, *) {
-                imageViewVideoButton?.image = UIImage(systemName: "pause.fill")
-            } else {
-                imageViewVideoButton?.image = nil
-            }
-        } else {
-            player.pause()
-            if let button = sender as? UIButton {
-                if #available(iOS 13.0, *) {
-                    button.setImage(UIImage(systemName: "play.fill"), for: .normal)
-                } else {
-                    button.setImage(nil, for: .normal)
-                }
-            }
-            if #available(iOS 13.0, *) {
-                imageViewVideoButton?.image = UIImage(systemName: "play.fill")
-            } else {
-                imageViewVideoButton?.image = nil
-            }
-        }
-    }
-
-    @objc private func toggleMute(_ sender: UIButton) {
-        guard let player = videoPlayer else { return }
-
-        player.isMuted.toggle()
-        if #available(iOS 13.0, *) {
-            let iconName = player.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill"
-            sender.setImage(UIImage(systemName: iconName), for: .normal)
-        }
+        
     }
     
     // MARK: - override
@@ -418,36 +324,27 @@ extension SKZoomingScrollView: UIScrollViewDelegate {
 
 extension SKZoomingScrollView: SKDetectingViewDelegate {
     func handleSingleTap(_ view: UIView, touch: UITouch) {
+        
         if photo.isVideo() {
-            guard let player = videoPlayer else { return }
-
-            if player.rate != 1.0 {
-                player.play()
+            
+            if videoPlayer?.rate != 1.0 {
+                videoPlayer?.play()
                 imageViewVideoButton?.isHidden = true
-                if #available(iOS 13.0, *) {
-                    imageViewVideoButton?.image = UIImage(systemName: "pause.fill")
-                } else {
-                    imageViewVideoButton?.image = nil
-                }
             } else {
-                player.pause()
+                videoPlayer?.pause()
                 imageViewVideoButton?.isHidden = false
-                if #available(iOS 13.0, *) {
-                    imageViewVideoButton?.image = UIImage(systemName: "play.fill")
-                } else {
-                    imageViewVideoButton?.image = nil
-                }
             }
+            
             return
         }
-
+        
         guard let browser = browser else {
             return
         }
         guard SKPhotoBrowserOptions.enableZoomBlackArea == true else {
             return
         }
-
+        
         if browser.areControlsHidden() == false && SKPhotoBrowserOptions.enableSingleTapDismiss == true {
             browser.determineAndClose()
         } else {
