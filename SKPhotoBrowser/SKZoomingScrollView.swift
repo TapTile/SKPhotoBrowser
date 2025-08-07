@@ -8,6 +8,7 @@
 
 import UIKit
 import AVFoundation
+import AVKit
 
 open class SKZoomingScrollView: UIScrollView {
     
@@ -17,6 +18,7 @@ open class SKZoomingScrollView: UIScrollView {
     var videoPlayer: AVPlayer?
     var videoPlayerLayer: AVPlayerLayer?
     var imageViewVideoButton: UIImageView?
+    var videoPlayerViewController: AVPlayerViewController?
     
     private var isSetup = false
     private var isVideoSetup = false
@@ -92,36 +94,32 @@ open class SKZoomingScrollView: UIScrollView {
         }
     }
     
-    func setupVideo () {
-        
-        // tap
-        if !isVideoSetup {
-            isVideoSetup = true
-            tapView = SKDetectingView(frame: bounds)
-            tapView.delegate = self
-            tapView.backgroundColor = .clear
-            tapView.autoresizingMask = [.flexibleHeight, .flexibleWidth]
-            addSubview(tapView)
-        }
-        
-        if let url = photo.videoURL {
-            
-            imageViewVideoButton = UIImageView(frame: CGRect(x: 0, y: 0,
-                                                             width: 50, height: 50))
-            
-            imageViewVideoButton?.image = UIImage(named: "PlayButton.png")
-            
-            addSubview(imageViewVideoButton!)
-            imageViewVideoButton?.center = center
-            
-            videoPlayer = AVPlayer(url: url)
-            videoPlayerLayer = AVPlayerLayer(player: videoPlayer)
-            videoPlayerLayer?.frame = self.bounds
-            layer.addSublayer(videoPlayerLayer!)
-            
-            bringSubviewToFront(imageViewVideoButton!)
-        }
-        
+    func setupVideo() -> AVPlayerViewController? {
+        guard !isVideoSetup else { return videoPlayerViewController }
+        isVideoSetup = true
+
+        guard let url = photo.videoURL else { return nil }
+
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [])
+        try? AVAudioSession.sharedInstance().setActive(true)
+
+        let player = AVPlayer(url: url)
+        videoPlayer = player
+
+        let playerVC = AVPlayerViewController()
+        playerVC.player = player
+        playerVC.view.frame = bounds
+        playerVC.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        addSubview(playerVC.view)
+
+        playerVC.showsPlaybackControls = true
+
+        // Automatically start playing (restores previous behavior)
+        player.play()
+
+        videoPlayerViewController = playerVC
+        bringSubviewToFront(playerVC.view)
+        return playerVC
     }
     
     // MARK: - override
@@ -212,15 +210,15 @@ open class SKZoomingScrollView: UIScrollView {
     }
     
     open func prepareForReuse() {
-        
         if let layer = videoPlayerLayer {
             layer.removeFromSuperlayer()
         }
-        
+
+        videoPlayer?.pause()
         imageViewVideoButton = nil
         videoPlayerLayer = nil
         videoPlayer = nil
-        
+
         photo = nil
         if captionView != nil {
             captionView.removeFromSuperview()
